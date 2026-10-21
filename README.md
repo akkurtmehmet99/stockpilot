@@ -53,7 +53,7 @@ Das Projekt besteht aus statischen Dateien. Ein GitHub-Actions-Workflow unter `.
 4. Nach dem erfolgreichen Workflow-Lauf ist die Website unter der von GitHub angezeigten Pages-URL erreichbar.
 5. Trage die veröffentlichte URL hier ein.
 
-**Live-Demo:** _Nach der Veröffentlichung die URL hier eintragen._
+**Live-Demo:** [https://akkurtmehmet99.github.io/stockpilot/](https://akkurtmehmet99.github.io/stockpilot/)
 
 ## Technologien
 
