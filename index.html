@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f7f8fa" />
+    <meta
+      name="description"
+      content="Verwalte mit StockPilot Lagerbestände, Lieferanten und Warenbewegungen an einem Ort."
+    />
+    <title>StockPilot — Intelligente Lagerverwaltung</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="./app.js" type="module"></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" id="sidebar">
+        <a class="brand" href="#" aria-label="StockPilot Startseite">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 32 32" fill="none">
+              <path d="M5 10.5 16 5l11 5.5v11L16 27 5 21.5v-11Z" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" />
+              <path d="m5.5 10.8 10.5 5.4 10.5-5.4M16 16.5V27M10.5 8l11 5.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </span>
+          <span class="brand-name">stock<span>pilot</span></span>
+        </a>
+
+        <div class="workspace-switcher">
+          <div class="workspace-avatar">N</div>
+          <div class="workspace-copy">
+            <span>ARBEITSBEREICH</span>
+            <strong>Nova Lager</strong>
+          </div>
+          <span class="workspace-chevron" aria-hidden="true">⌄</span>
+        </div>
+
+        <nav class="main-nav" aria-label="Hauptmenü">
+          <span class="nav-label">MENÜ</span>
+          <button class="nav-link active" data-page="dashboard">
+            <span class="nav-icon" data-icon="grid"></span><span>Übersicht</span>
+          </button>
+          <button class="nav-link" data-page="inventory">
+            <span class="nav-icon" data-icon="box"></span><span>Lagerbestand</span>
+            <span class="nav-count" id="nav-product-count">0</span>
+          </button>
+          <button class="nav-link" data-page="movements">
+            <span class="nav-icon" data-icon="activity"></span><span>Warenbewegungen</span>
+          </button>
+          <button class="nav-link" data-page="suppliers">
+            <span class="nav-icon" data-icon="truck"></span><span>Lieferanten</span>
+          </button>
+        </nav>
+
+        <div class="sidebar-bottom">
+          <div class="help-card">
+            <div class="help-icon"><span data-icon="sparkles"></span></div>
+            <strong>Alles im Blick.</strong>
+            <p>Behalte deinen Lagerbestand im Blick und mach dir die Arbeit leichter.</p>
+            <button class="help-link" data-page="inventory">Bestand ansehen <span>→</span></button>
+          </div>
+          <button class="user-profile" id="reset-demo" title="Demodaten zurücksetzen">
+            <span class="user-avatar">MM</span>
+            <span class="user-details"><strong>Max Mustermann</strong><small>Lagerverwalter</small></span>
+            <span class="profile-more" aria-hidden="true">···</span>
+          </button>
+        </div>
+      </aside>
+
+      <main class="main-area">
+        <header class="topbar">
+          <button class="mobile-menu-button" id="mobile-menu" aria-label="Menü öffnen/schließen">
+            <span data-icon="menu"></span>
+          </button>
+          <div class="breadcrumbs"><span>Nova Lager</span><span class="breadcrumb-slash">/</span><strong id="breadcrumb-current">Übersicht</strong></div>
+          <div class="topbar-actions">
+            <span class="today-label" id="today-label"></span>
+            <button class="icon-button notification-button" aria-label="Benachrichtigungen">
+              <span data-icon="bell"></span><i></i>
+            </button>
+            <span class="topbar-divider"></span>
+            <span class="topbar-avatar">MM</span>
+          </div>
+        </header>
+
+        <section class="page-content">
+          <div class="page-heading">
+            <div>
+              <div class="eyebrow"><span class="status-dot"></span> LAGERSTATUS <span id="live-date"></span></div>
+              <h1 id="page-title">Übersicht</h1>
+              <p id="page-description">Wichtige Entwicklungen und dein Lagerbestand auf einen Blick.</p>
+            </div>
+            <div class="heading-actions">
+              <button class="button button-secondary" id="export-button"><span data-icon="download"></span><span>Exportieren</span></button>
+              <button class="button button-primary" id="add-product-button"><span data-icon="plus"></span><span>Produkt hinzufügen</span></button>
+            </div>
+          </div>
+          <div id="page-view"></div>
+          <footer class="app-footer"><span>© 2026 StockPilot</span><span>Lagerverwaltung leicht gemacht.</span></footer>
+        </section>
+      </main>
+    </div>
+
+    <div class="modal-backdrop" id="modal-backdrop" hidden>
+      <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div class="modal-header">
+          <div><span class="modal-kicker">STOCKPILOT</span><h2 id="modal-title"></h2></div>
+          <button class="icon-button modal-close" id="modal-close" aria-label="Dialog schließen"><span data-icon="close"></span></button>
+        </div>
+        <div id="modal-content"></div>
+      </section>
+    </div>
+    <div class="toast-region" id="toast-region" aria-live="polite"></div>
+  </body>
+</html>
