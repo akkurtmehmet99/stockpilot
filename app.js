@@ -22,23 +22,6 @@ document.querySelectorAll("[data-icon]").forEach((node) => {
   node.innerHTML = icon(node.dataset.icon);
 });
 
-const seedProducts = [
-  { id: "prd-1001", name: "Kabelloser Barcodescanner", sku: "ELE-001", category: "Elektronik", quantity: 8, min: 10, price: 12.5, supplier: "Techno Distribution", emoji: "▥" },
-  { id: "prd-1002", name: "Thermoetikettenrolle", sku: "SAR-014", category: "Verbrauchsmaterial", quantity: 42, min: 20, price: 1.85, supplier: "BüroPlus", emoji: "▤" },
-  { id: "prd-1003", name: "Schutzhülle für MDE-Gerät", sku: "AKS-028", category: "Zubehör", quantity: 4, min: 8, price: 3.2, supplier: "Techno Distribution", emoji: "▱" },
-  { id: "prd-1004", name: "Packband 45 mm", sku: "PAK-009", category: "Verpackung", quantity: 126, min: 30, price: 0.38, supplier: "Paket & Co.", emoji: "◉" },
-  { id: "prd-1005", name: "USB-C-Adapter", sku: "ELE-019", category: "Elektronik", quantity: 0, min: 6, price: 4.9, supplier: "Techno Distribution", emoji: "⌁" },
-  { id: "prd-1006", name: "Druckerpapier A4", sku: "SAR-002", category: "Verbrauchsmaterial", quantity: 68, min: 25, price: 1.65, supplier: "BüroPlus", emoji: "▧" },
-  { id: "prd-1007", name: "Regaletikettenhalter", sku: "RAF-011", category: "Lagerausstattung", quantity: 13, min: 10, price: 0.72, supplier: "Paket & Co.", emoji: "▰" },
-  { id: "prd-1008", name: "Sicherheitsschere", sku: "DEP-006", category: "Lagerausstattung", quantity: 3, min: 10, price: 0.95, supplier: "BüroPlus", emoji: "✂" },
-];
-
-const seedSuppliers = [
-  { id: "sup-1", name: "Techno Distribution", contact: "Anna Weber", email: "bestellung@techno-distribution.de", phone: "+49 30 555 01 42", products: 3 },
-  { id: "sup-2", name: "BüroPlus", contact: "Max Schneider", email: "service@bueroplus.de", phone: "+49 40 555 03 18", products: 3 },
-  { id: "sup-3", name: "Paket & Co.", contact: "Lena Fischer", email: "hallo@paketundco.de", phone: "+49 89 555 02 67", products: 2 },
-];
-
 const today = new Date();
 const isoDay = (date) => {
   const year = date.getFullYear();
@@ -46,41 +29,42 @@ const isoDay = (date) => {
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 };
-const daysAgo = (days) => {
-  const date = new Date();
-  date.setDate(date.getDate() - days);
-  return isoDay(date);
-};
-const seedMovements = [
-  { id: "mov-1", productId: "prd-1002", type: "in", quantity: 20, note: "Wöchentliche Bestellung", date: daysAgo(0) },
-  { id: "mov-2", productId: "prd-1001", type: "out", quantity: 2, note: "Auftrag #SP-2408", date: daysAgo(0) },
-  { id: "mov-3", productId: "prd-1004", type: "in", quantity: 50, note: "Lieferung vom Lieferanten", date: daysAgo(1) },
-  { id: "mov-4", productId: "prd-1006", type: "out", quantity: 12, note: "Interner Verbrauch", date: daysAgo(2) },
-  { id: "mov-5", productId: "prd-1003", type: "out", quantity: 3, note: "Auftrag #SP-2392", date: daysAgo(3) },
-  { id: "mov-6", productId: "prd-1008", type: "in", quantity: 10, note: "Lagerauffüllung", date: daysAgo(4) },
-];
-
-const storageKey = "stockpilot-data-de-v1";
-function loadState() {
-  const saved = localStorage.getItem(storageKey);
-  if (!saved) return { products: seedProducts, suppliers: seedSuppliers, movements: seedMovements };
-  try {
-    const parsed = JSON.parse(saved);
-    if (Array.isArray(parsed.products) && Array.isArray(parsed.suppliers) && Array.isArray(parsed.movements)) return parsed;
-  } catch (error) {
-    console.error("Gespeicherte StockPilot-Daten konnten nicht gelesen werden.", error);
-  }
-  return { products: seedProducts, suppliers: seedSuppliers, movements: seedMovements };
-}
-
-let state = loadState();
+let state = { products: [], suppliers: [], movements: [] };
 let currentPage = "dashboard";
 let searchTerm = "";
 let categoryFilter = "all";
 let toastTimer;
+let activeToast;
 const pageView = document.querySelector("#page-view");
 const modalBackdrop = document.querySelector("#modal-backdrop");
 const modalContent = document.querySelector("#modal-content");
+
+async function apiRequest(url, options = {}) {
+  let response;
+  try {
+    response = await fetch(url, {
+      ...options,
+      headers: { "Content-Type": "application/json", ...options.headers },
+    });
+  } catch {
+    document.querySelector("#connection-status").textContent = "Server nicht erreichbar";
+    document.querySelector("#connection-status").classList.add("offline");
+    throw new Error("Der StockPilot-Server ist nicht erreichbar. Bitte prüfe die Verbindung und lade die Seite erneut.");
+  }
+  let result;
+  try {
+    result = await response.json();
+  } catch {
+    throw new Error("Der Server hat eine ungültige Antwort gesendet.");
+  }
+  if (!response.ok) throw new Error(result.error || "Die Anfrage konnte nicht verarbeitet werden.");
+  if (Array.isArray(result.products) && Array.isArray(result.suppliers) && Array.isArray(result.movements)) {
+    state = result;
+    document.querySelector("#connection-status").textContent = "Datenbank verbunden";
+    document.querySelector("#connection-status").classList.remove("offline");
+  }
+  return result;
+}
 
 const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (char) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
@@ -90,18 +74,33 @@ const formatDate = (date) => new Intl.DateTimeFormat("de-DE", { day: "2-digit", 
 const productById = (id) => state.products.find((product) => product.id === id);
 const stockStatus = (product) => product.quantity === 0 ? "critical" : product.quantity <= product.min ? "low" : "in-stock";
 const stockLabel = (product) => ({ critical: "Nicht vorrätig", low: "Niedriger Bestand", "in-stock": "Auf Lager" })[stockStatus(product)];
-const persist = () => {
-  localStorage.setItem(storageKey, JSON.stringify(state));
-};
 
-function showToast(message) {
+function showToast(message, isError = false) {
   const region = document.querySelector("#toast-region");
+  activeToast?.remove();
   const toast = document.createElement("div");
-  toast.className = "toast";
-  toast.innerHTML = `<span class="toast-mark">✓</span><span>${escapeHtml(message)}</span>`;
+  toast.className = `toast${isError ? " toast-error" : ""}`;
+  toast.innerHTML = `<span class="toast-mark">${isError ? "!" : "✓"}</span><span>${escapeHtml(message)}</span>`;
   region.append(toast);
+  activeToast = toast;
   window.clearTimeout(toastTimer);
-  toastTimer = window.setTimeout(() => toast.remove(), 3200);
+  toastTimer = window.setTimeout(() => {
+    toast.remove();
+    if (activeToast === toast) activeToast = null;
+  }, 3200);
+}
+
+function showConnectionError(message) {
+  pageView.innerHTML = `<section class="panel connection-error"><h2>Keine Verbindung zur Datenbank</h2><p>${escapeHtml(message)}</p><button class="button button-primary" id="retry-connection">Erneut versuchen</button></section>`;
+  document.querySelector("#retry-connection").addEventListener("click", async () => {
+    pageView.innerHTML = '<div class="loading-state">Verbindung wird hergestellt ...</div>';
+    try {
+      await apiRequest("/api/state");
+      render();
+    } catch (error) {
+      showConnectionError(error.message);
+    }
+  });
 }
 
 function movementLabel(movement) {
@@ -229,11 +228,13 @@ function renderMovements() {
 
 function renderSuppliers() {
   const rows = state.suppliers.map((supplier) => `<tr>
-    <td><div class="supplier-contact"><span class="supplier-avatar">${escapeHtml(supplier.name.slice(0, 1))}</span><span><strong>${escapeHtml(supplier.name)}</strong><small class="table-code" style="display:block;margin-top:3px">${escapeHtml(supplier.contact)}</small></span></div></td>
-    <td>${escapeHtml(supplier.email)}</td><td>${escapeHtml(supplier.phone)}</td><td>${state.products.filter((product) => product.supplier === supplier.name).length} Artikel</td>
-    <td><span class="status-label">Aktiv</span></td></tr>`).join("");
+    <td><div class="supplier-contact"><span class="supplier-avatar">${escapeHtml(supplier.name.slice(0, 1))}</span><span><strong>${escapeHtml(supplier.name)}</strong><small class="table-code">${escapeHtml(supplier.contact || "Keine Ansprechperson")}</small></span></div></td>
+    <td>${escapeHtml(supplier.email || "—")}</td><td>${escapeHtml(supplier.phone || "—")}</td><td>${supplier.products} Artikel</td>
+    <td><div class="row-actions"><button class="row-action" data-action="edit-supplier" data-id="${escapeHtml(supplier.id)}" title="Lieferant bearbeiten" aria-label="${escapeHtml(supplier.name)} bearbeiten">${icon("edit")}</button><button class="row-action" data-action="delete-supplier" data-id="${escapeHtml(supplier.id)}" title="Lieferant löschen" aria-label="${escapeHtml(supplier.name)} löschen">${icon("trash")}</button></div></td></tr>`).join("");
   pageView.innerHTML = `<section class="panel page-panel"><div class="panel-header"><div><h2 class="panel-title">Lieferantenverzeichnis</h2><p class="panel-subtitle">Deine Geschäftspartner im Überblick</p></div><span class="table-code">${state.suppliers.length} Lieferanten</span></div>
-    <div class="inventory-table-wrap"><table class="suppliers-table"><thead><tr><th>LIEFERANT</th><th>E-MAIL</th><th>TELEFON</th><th>ARTIKEL</th><th>STATUS</th></tr></thead><tbody>${rows || '<tr><td class="empty-state" colspan="5">Noch keine Lieferanten vorhanden.</td></tr>'}</tbody></table></div><div class="footer-note">Lieferanten werden anhand des Namens den Artikeln zugeordnet.</div></section>`;
+    <div class="supplier-toolbar"><span class="table-code">${state.suppliers.length} Lieferanten · ${state.products.filter((product) => product.supplierId).length} zugeordnete Artikel</span><button class="button button-secondary button-small" id="supplier-add-button">${icon("plus")} Lieferant hinzufügen</button></div>
+    <div class="inventory-table-wrap"><table class="suppliers-table"><thead><tr><th>LIEFERANT</th><th>E-MAIL</th><th>TELEFON</th><th>ARTIKEL</th><th>AKTIONEN</th></tr></thead><tbody>${rows || '<tr><td class="empty-state" colspan="5">Noch keine Lieferanten vorhanden.</td></tr>'}</tbody></table></div><div class="footer-note">Beim Löschen eines Lieferanten bleiben die Artikel erhalten und werden als „ohne Lieferant“ geführt.</div></section>`;
+  document.querySelector("#supplier-add-button").addEventListener("click", () => openSupplierModal());
 }
 
 const pageMeta = {
@@ -246,6 +247,7 @@ function render() {
   document.querySelector("#breadcrumb-current").textContent = pageMeta[currentPage][0];
   document.querySelector("#page-title").textContent = pageMeta[currentPage][0];
   document.querySelector("#page-description").textContent = pageMeta[currentPage][1];
+  document.querySelector("#add-product-button").hidden = currentPage === "suppliers";
   document.querySelectorAll(".nav-link").forEach((button) => button.classList.toggle("active", button.dataset.page === currentPage));
   document.querySelector("#nav-product-count").textContent = state.products.length;
   if (currentPage === "dashboard") renderDashboard();
@@ -261,7 +263,15 @@ function openModal(title, content, onSubmit) {
   document.body.style.overflow = "hidden";
   modalContent.querySelector("form")?.addEventListener("submit", (event) => {
     event.preventDefault();
-    onSubmit(new FormData(event.currentTarget));
+    const form = event.currentTarget;
+    const submitButton = form.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+    void Promise.resolve()
+      .then(() => onSubmit(new FormData(form)))
+      .catch((error) => showToast(error.message || "Die Anfrage konnte nicht verarbeitet werden.", true))
+      .finally(() => {
+        if (!modalBackdrop.hidden) submitButton.disabled = false;
+      });
   });
   modalContent.querySelector("input, select")?.focus();
 }
@@ -274,42 +284,69 @@ function selectOptions(selected = "") {
   return categories.map((category) => `<option value="${escapeHtml(category)}" ${selected === category ? "selected" : ""}>${escapeHtml(category)}</option>`).join("");
 }
 function supplierOptions(selected = "") {
-  const suppliers = [...new Set([...state.suppliers.map((supplier) => supplier.name), ...state.products.map((product) => product.supplier).filter(Boolean)])];
-  return `<option value="">Lieferant auswählen</option>${suppliers.map((supplier) => `<option value="${escapeHtml(supplier)}" ${selected === supplier ? "selected" : ""}>${escapeHtml(supplier)}</option>`).join("")}`;
+  return `<option value="">Kein Lieferant</option>${state.suppliers.map((supplier) => `<option value="${escapeHtml(supplier.id)}" ${selected === supplier.id ? "selected" : ""}>${escapeHtml(supplier.name)}</option>`).join("")}`;
 }
 
 function openProductModal(product = null) {
   const editing = Boolean(product);
+  const stockField = editing
+    ? `<div class="form-field"><span class="form-label">Aktueller Bestand</span><strong class="form-value">${product.quantity} Stück</strong><span class="form-hint">Bestände ausschließlich über Warenbewegungen ändern.</span></div>`
+    : `<div class="form-field"><label for="product-quantity">Anfangsbestand *</label><input id="product-quantity" name="quantity" type="number" min="0" step="1" required value="0"></div>`;
   const content = `<form><div class="form-grid">
     <div class="form-field full"><label for="product-name">Artikelname *</label><input id="product-name" name="name" required maxlength="80" placeholder="z. B. Kabelloser Barcodescanner" value="${escapeHtml(product?.name ?? "")}"></div>
     <div class="form-field"><label for="product-sku">Artikelnummer (SKU) *</label><input id="product-sku" name="sku" required maxlength="24" placeholder="z. B. ELE-001" value="${escapeHtml(product?.sku ?? "")}"></div>
     <div class="form-field"><label for="product-category">Kategorie *</label><select id="product-category" name="category" required>${selectOptions(product?.category)}</select></div>
-    <div class="form-field"><label for="product-quantity">Aktueller Bestand *</label><input id="product-quantity" name="quantity" type="number" min="0" step="1" required value="${product?.quantity ?? 0}"></div>
+    ${stockField}
     <div class="form-field"><label for="product-min">Mindestbestand *</label><input id="product-min" name="min" type="number" min="0" step="1" required value="${product?.min ?? 5}"></div>
     <div class="form-field"><label for="product-price">Einkaufspreis pro Stück (€) *</label><input id="product-price" name="price" type="number" min="0" step="0.01" required value="${product?.price ?? ""}"></div>
-    <div class="form-field"><label for="product-supplier">Lieferant</label><select id="product-supplier" name="supplier">${supplierOptions(product?.supplier)}</select></div>
-    <div class="form-field full"><span class="form-hint">Erreicht der Bestand den Mindestbestand, erscheint der Artikel in der Liste mit kritischen Beständen.</span></div>
+    <div class="form-field"><label for="product-supplier">Lieferant</label><select id="product-supplier" name="supplierId">${supplierOptions(product?.supplierId)}</select></div>
+    <div class="form-field full"><span class="form-hint">Erreicht der Bestand den Mindestbestand, wird der Artikel als kritisch markiert. Jeder Wareneingang und -ausgang wird dauerhaft dokumentiert.</span></div>
   </div><div class="modal-actions"><button type="button" class="button button-secondary" data-cancel>Abbrechen</button><button class="button button-primary" type="submit">${editing ? "Änderungen speichern" : "Artikel hinzufügen"}</button></div></form>`;
-  openModal(editing ? "Artikel bearbeiten" : "Neuen Artikel hinzufügen", content, (form) => {
-    const name = String(form.get("name")).trim();
-    const sku = String(form.get("sku")).trim();
-    if (state.products.some((item) => item.sku.toLocaleLowerCase("de-DE") === sku.toLocaleLowerCase("de-DE") && item.id !== product?.id)) {
-      showToast("Diese Artikelnummer wird bereits verwendet.");
-      return;
-    }
-    const updated = {
-      id: product?.id ?? `prd-${Date.now()}`,
-      name, sku, category: String(form.get("category")),
-      quantity: Number(form.get("quantity")), min: Number(form.get("min")),
-      price: Number(form.get("price")), supplier: String(form.get("supplier")),
-      emoji: product?.emoji ?? "▦",
+  openModal(editing ? "Artikel bearbeiten" : "Neuen Artikel hinzufügen", content, async (form) => {
+    const data = {
+      name: String(form.get("name")).trim(),
+      sku: String(form.get("sku")).trim(),
+      category: String(form.get("category")),
+      min: Number(form.get("min")),
+      price: Number(form.get("price")),
+      supplierId: String(form.get("supplierId") || ""),
     };
-    if (product) state.products = state.products.map((item) => item.id === product.id ? updated : item);
-    else state.products.unshift(updated);
-    persist();
-    closeModal();
-    render();
-    showToast(product ? "Artikeldaten wurden aktualisiert." : "Artikel wurde erfolgreich hinzugefügt.");
+    if (!editing) data.quantity = Number(form.get("quantity"));
+    try {
+      await apiRequest(editing ? `/api/products/${encodeURIComponent(product.id)}` : "/api/products", {
+        method: editing ? "PUT" : "POST",
+        body: JSON.stringify(data),
+      });
+      closeModal();
+      render();
+      showToast(editing ? "Artikeldaten wurden aktualisiert." : "Artikel wurde erfolgreich hinzugefügt.");
+    } catch (error) {
+      showToast(error.message, true);
+    }
+  });
+}
+
+function openSupplierModal(supplier = null) {
+  const editing = Boolean(supplier);
+  const content = `<form><div class="form-grid">
+    <div class="form-field full"><label for="supplier-name">Lieferantenname *</label><input id="supplier-name" name="name" required maxlength="80" placeholder="z. B. BüroPlus" value="${escapeHtml(supplier?.name ?? "")}"></div>
+    <div class="form-field full"><label for="supplier-contact">Ansprechperson</label><input id="supplier-contact" name="contact" maxlength="80" placeholder="Vor- und Nachname" value="${escapeHtml(supplier?.contact ?? "")}"></div>
+    <div class="form-field"><label for="supplier-email">E-Mail-Adresse</label><input id="supplier-email" name="email" type="email" maxlength="120" placeholder="kontakt@beispiel.de" value="${escapeHtml(supplier?.email ?? "")}"></div>
+    <div class="form-field"><label for="supplier-phone">Telefon</label><input id="supplier-phone" name="phone" type="tel" maxlength="40" placeholder="+49 ..." value="${escapeHtml(supplier?.phone ?? "")}"></div>
+  </div><div class="modal-actions"><button type="button" class="button button-secondary" data-cancel>Abbrechen</button><button class="button button-primary" type="submit">${editing ? "Änderungen speichern" : "Lieferant hinzufügen"}</button></div></form>`;
+  openModal(editing ? "Lieferant bearbeiten" : "Neuen Lieferanten hinzufügen", content, async (form) => {
+    const data = Object.fromEntries(["name", "contact", "email", "phone"].map((key) => [key, String(form.get(key) || "").trim()]));
+    try {
+      await apiRequest(editing ? `/api/suppliers/${encodeURIComponent(supplier.id)}` : "/api/suppliers", {
+        method: editing ? "PUT" : "POST",
+        body: JSON.stringify(data),
+      });
+      closeModal();
+      render();
+      showToast(editing ? "Lieferantendaten wurden aktualisiert." : "Lieferant wurde erfolgreich hinzugefügt.");
+    } catch (error) {
+      showToast(error.message, true);
+    }
   });
 }
 
@@ -326,7 +363,7 @@ function openMovementModal(product = null) {
     <div class="form-field full"><label for="movement-note">Beschreibung</label><input id="movement-note" name="note" maxlength="100" placeholder="z. B. Lieferung vom Lieferanten"></div>
     <div class="form-field full"><span class="form-hint" id="movement-stock-hint"></span></div>
   </div><div class="modal-actions"><button type="button" class="button button-secondary" data-cancel>Abbrechen</button><button class="button button-primary" type="submit">Bewegung speichern</button></div></form>`;
-  openModal("Warenbewegung erfassen", content, (form) => {
+  openModal("Warenbewegung erfassen", content, async (form) => {
     const productId = String(form.get("productId"));
     const type = String(form.get("type"));
     const quantity = Number(form.get("quantity"));
@@ -339,12 +376,17 @@ function openMovementModal(product = null) {
       showToast(`Nicht genügend Bestand. Aktuell verfügbar: ${target.quantity} Stück.`);
       return;
     }
-    target.quantity += type === "in" ? quantity : -quantity;
-    state.movements.unshift({ id: `mov-${Date.now()}`, productId, type, quantity, note: String(form.get("note")).trim() || "Manuelle Lagerbuchung", date: isoDay(new Date()) });
-    persist();
-    closeModal();
-    render();
-    showToast(type === "in" ? "Wareneingang wurde erfasst." : "Warenausgang wurde erfasst.");
+    try {
+      await apiRequest("/api/movements", {
+        method: "POST",
+        body: JSON.stringify({ productId, type, quantity, note: String(form.get("note")).trim() }),
+      });
+      closeModal();
+      render();
+      showToast(type === "in" ? "Wareneingang wurde erfasst." : "Warenausgang wurde erfasst.");
+    } catch (error) {
+      showToast(error.message, true);
+    }
   });
   const updateHint = () => {
     const selected = productById(document.querySelector("#movement-product").value);
@@ -356,14 +398,28 @@ function openMovementModal(product = null) {
   updateHint();
 }
 
-function deleteProduct(id) {
+async function deleteProduct(id) {
   const product = productById(id);
   if (!product || !window.confirm(`Möchtest du „${product.name}“ und alle zugehörigen Warenbewegungen wirklich löschen?`)) return;
-  state.products = state.products.filter((item) => item.id !== id);
-  state.movements = state.movements.filter((item) => item.productId !== id);
-  persist();
-  render();
-  showToast("Artikel und zugehörige Warenbewegungen wurden gelöscht.");
+  try {
+    await apiRequest(`/api/products/${encodeURIComponent(id)}`, { method: "DELETE" });
+    render();
+    showToast("Artikel und zugehörige Warenbewegungen wurden gelöscht.");
+  } catch (error) {
+    showToast(error.message, true);
+  }
+}
+
+async function deleteSupplier(id) {
+  const supplier = state.suppliers.find((item) => item.id === id);
+  if (!supplier || !window.confirm(`Möchtest du den Lieferanten „${supplier.name}“ löschen? Zugeordnete Artikel bleiben erhalten.`)) return;
+  try {
+    await apiRequest(`/api/suppliers/${encodeURIComponent(id)}`, { method: "DELETE" });
+    render();
+    showToast("Lieferant wurde gelöscht. Die Artikel bleiben erhalten.");
+  } catch (error) {
+    showToast(error.message, true);
+  }
 }
 
 function exportCsv() {
@@ -398,7 +454,12 @@ document.querySelector("#page-view").addEventListener("click", (event) => {
   const product = productById(action.dataset.id);
   if (action.dataset.action === "edit" && product) openProductModal(product);
   if (action.dataset.action === "movement" && product) openMovementModal(product);
-  if (action.dataset.action === "delete") deleteProduct(action.dataset.id);
+  if (action.dataset.action === "delete") void deleteProduct(action.dataset.id);
+  if (action.dataset.action === "edit-supplier") {
+    const supplier = state.suppliers.find((item) => item.id === action.dataset.id);
+    if (supplier) openSupplierModal(supplier);
+  }
+  if (action.dataset.action === "delete-supplier") void deleteSupplier(action.dataset.id);
 });
 document.querySelector("#add-product-button").addEventListener("click", () => openProductModal());
 document.querySelector("#export-button").addEventListener("click", exportCsv);
@@ -410,15 +471,20 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !modalBackdrop.hidden) closeModal();
 });
 document.querySelector("#mobile-menu").addEventListener("click", () => document.querySelector("#sidebar").classList.toggle("open"));
-document.querySelector("#reset-demo").addEventListener("click", () => {
+document.querySelector("#reset-demo").addEventListener("click", async () => {
   if (!window.confirm("Möchtest du die Demodaten wirklich zurücksetzen? Dabei werden deine eigenen Änderungen gelöscht.")) return;
-  state = { products: seedProducts, suppliers: seedSuppliers, movements: seedMovements };
-  persist();
-  render();
-  showToast("Demodaten wurden wiederhergestellt.");
+  try {
+    await apiRequest("/api/demo/reset", { method: "POST" });
+    render();
+    showToast("Demodaten wurden wiederhergestellt.");
+  } catch (error) {
+    showToast(error.message, true);
+  }
 });
 
 const todayText = new Intl.DateTimeFormat("de-DE", { day: "numeric", month: "long", year: "numeric" }).format(today);
 document.querySelector("#today-label").textContent = todayText;
 document.querySelector("#live-date").textContent = `· ${todayText}`;
 render();
+pageView.innerHTML = '<div class="loading-state">Datenbank wird geladen ...</div>';
+apiRequest("/api/state").then(render).catch((error) => showConnectionError(error.message));

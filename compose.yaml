@@ -1,0 +1,11 @@
+services:
+  stockpilot:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - stockpilot-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  stockpilot-data:
